@@ -24,6 +24,14 @@ type Bucket struct {
 	Created                        string        `json:"created"`
 }
 
+type BucketCors struct {
+	AllowedOrigins []string `json:"allowedOrigins"`
+	AllowedMethods []string `json:"allowedMethods"`
+	AllowedHeaders []string `json:"allowedHeaders"`
+	ExposeHeaders  []string `json:"exposeHeaders"`
+	MaxAgeSeconds  *int32    `json:"maxAgeSeconds"`
+}
+
 type LocalAlias struct {
 	AccessKeyID string `json:"accessKeyId"`
 	Alias       string `json:"alias"`
