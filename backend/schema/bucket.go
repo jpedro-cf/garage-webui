@@ -60,3 +60,16 @@ type WebsiteConfig struct {
 	IndexDocument string `json:"indexDocument"`
 	ErrorDocument string `json:"errorDocument"`
 }
+
+func (p *Permissions) HasPermission(perm string) bool {
+	switch perm {
+	case "read":
+		return p.Read
+	case "write":
+		return p.Write
+	case "owner":
+		return p.Owner
+	default:
+		return false
+	}
+}

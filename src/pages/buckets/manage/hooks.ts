@@ -117,6 +117,7 @@ export const useBucketCors = (bucketName?: string) => {
     queryKey: ["bucket_cors", bucketName],
     queryFn: () => api.get<BucketCors[]>(`/buckets/${bucketName}/cors`),
     enabled: !!bucketName,
+    retry: false,
   });
 };
 

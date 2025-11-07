@@ -1,12 +1,12 @@
-import { Card, Modal } from "react-daisyui";
+import { Alert, Card, Modal } from "react-daisyui";
 import Button from "@/components/ui/button";
-import { CheckCircle, Plus } from "lucide-react";
+import { CheckCircle, CircleXIcon, Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useBucketContext } from "../context";
 import { bucketCorsSchema, BucketCorsSchema } from "../schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Path, useFieldArray, useForm, UseFormReturn } from "react-hook-form";
+import { Path, useForm, UseFormReturn } from "react-hook-form";
 import Input, { InputField } from "@/components/ui/input";
 import FormControl from "@/components/ui/form-control";
 import { useDisclosure } from "@/hooks/useDisclosure";
@@ -17,7 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const CorsConfiguration = () => {
   const queryClient = useQueryClient();
-  const { bucketName, cors } = useBucketContext();
+  const { bucketName, cors, bucket } = useBucketContext();
 
   const { mutate, isPending } = useBucketCorsMutation({
     onSuccess: () => {
@@ -31,29 +31,17 @@ const CorsConfiguration = () => {
     resolver: zodResolver(bucketCorsSchema),
     defaultValues: {
       bucketName: bucketName,
-      rules:
-        cors.length > 0
-          ? cors
-          : [
-              {
-                allowedHeaders: [],
-                allowedMethods: [],
-                allowedOrigins: [],
-                exposeHeaders: [],
-                maxAgeSeconds: null,
-              },
-            ],
+      rules: cors,
     },
   });
 
-  const { fields } = useFieldArray({
-    control: form.control,
-    name: "rules",
-  });
+  const fields = form.watch("rules");
 
   function handleSubmit(data: BucketCorsSchema) {
     mutate(data);
   }
+
+  const allowConfiguration = bucket.keys.some((key) => key.permissions.owner);
 
   return (
     <Card className="card-body">
@@ -66,74 +54,82 @@ const CorsConfiguration = () => {
             icon={CheckCircle}
             color="primary"
             type="submit"
-            disabled={isPending}
+            disabled={isPending || !allowConfiguration}
           >
             Save
           </Button>
         </div>
-        {fields.map((rule, idx) => (
-          <div
-            className="grid md:grid-cols-2 xl:grid-cols-5 gap-5 mt-5"
-            key={rule.id}
-          >
-            <FormControl
-              form={form}
-              name={`rules.${idx}.allowedHeaders`}
-              title={"Allowed Headers"}
-              render={(field) => (
-                <CorsRulesChips
-                  form={form}
-                  fieldName={`rules.${idx}.allowedHeaders`}
-                  values={(field.value as string[]) ?? []}
-                />
-              )}
-            />
-            <FormControl
-              form={form}
-              name={`rules.${idx}.allowedMethods`}
-              title={"Allowed Methods"}
-              render={(field) => (
-                <CorsRulesChips
-                  form={form}
-                  fieldName={`rules.${idx}.allowedMethods`}
-                  values={(field.value as string[]) ?? []}
-                />
-              )}
-            />
-            <FormControl
-              form={form}
-              name={`rules.${idx}.allowedOrigins`}
-              title={"Allowed Origins"}
-              render={(field) => (
-                <CorsRulesChips
-                  form={form}
-                  fieldName={`rules.${idx}.allowedOrigins`}
-                  values={(field.value as string[]) ?? []}
-                />
-              )}
-            />
-            <FormControl
-              key={rule.id}
-              form={form}
-              name={`rules.${idx}.exposeHeaders`}
-              title={"Expose Headers"}
-              render={(field) => (
-                <CorsRulesChips
-                  form={form}
-                  fieldName={`rules.${idx}.exposeHeaders`}
-                  values={(field.value as string[]) ?? []}
-                />
-              )}
-            />
-            <InputField
-              form={form}
-              name={`rules.${idx}.maxAgeSeconds`}
-              title="Max age seconds"
-              placeholder="0000"
-              type="number"
-            />
-          </div>
-        ))}
+        {!allowConfiguration && (
+          <Alert status="warning" icon={<CircleXIcon />} className="mt-5">
+            <span>
+              You must configure an access key with owner permissions for this
+              bucket before setting up CORS.
+            </span>
+          </Alert>
+        )}
+        {allowConfiguration &&
+          fields.map((_, idx) => (
+            <div
+              className="grid md:grid-cols-2 xl:grid-cols-5 gap-5 mt-5"
+              key={idx}
+            >
+              <FormControl
+                form={form}
+                name={`rules.${idx}.allowedHeaders`}
+                title={"Allowed Headers"}
+                render={(field) => (
+                  <CorsRulesChips
+                    form={form}
+                    fieldName={`rules.${idx}.allowedHeaders`}
+                    values={(field.value as string[]) ?? []}
+                  />
+                )}
+              />
+              <FormControl
+                form={form}
+                name={`rules.${idx}.allowedMethods`}
+                title={"Allowed Methods"}
+                render={(field) => (
+                  <CorsRulesChips
+                    form={form}
+                    fieldName={`rules.${idx}.allowedMethods`}
+                    values={(field.value as string[]) ?? []}
+                  />
+                )}
+              />
+              <FormControl
+                form={form}
+                name={`rules.${idx}.allowedOrigins`}
+                title={"Allowed Origins"}
+                render={(field) => (
+                  <CorsRulesChips
+                    form={form}
+                    fieldName={`rules.${idx}.allowedOrigins`}
+                    values={(field.value as string[]) ?? []}
+                  />
+                )}
+              />
+              <FormControl
+                form={form}
+                name={`rules.${idx}.exposeHeaders`}
+                title={"Expose Headers"}
+                render={(field) => (
+                  <CorsRulesChips
+                    form={form}
+                    fieldName={`rules.${idx}.exposeHeaders`}
+                    values={(field.value as string[]) ?? []}
+                  />
+                )}
+              />
+              <InputField
+                form={form}
+                name={`rules.${idx}.maxAgeSeconds`}
+                title="Max age seconds"
+                placeholder="0000"
+                type="number"
+              />
+            </div>
+          ))}
       </form>
     </Card>
   );

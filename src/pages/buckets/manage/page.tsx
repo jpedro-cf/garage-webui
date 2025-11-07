@@ -39,7 +39,9 @@ const tabs: Tab[] = [
 const ManageBucketPage = () => {
   const { id } = useParams();
   const { data, error, isLoading, refetch } = useBucket(id);
-  const { data: cors } = useBucketCors(data?.globalAliases[0]);
+  const { data: cors, isLoading: corsLoading } = useBucketCors(
+    data?.globalAliases[0]
+  );
 
   const name = data?.globalAliases[0];
 
@@ -63,7 +65,7 @@ const ManageBucketPage = () => {
         </Alert>
       )}
 
-      {data && cors && (
+      {data && !corsLoading && (
         <div className="container">
           <BucketContext.Provider
             value={{

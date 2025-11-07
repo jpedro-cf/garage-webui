@@ -61,20 +61,33 @@ func (b *Buckets) GetAll(w http.ResponseWriter, r *http.Request) {
 func (b*Buckets) GetCors(w http.ResponseWriter, r *http.Request){
 	bucket := r.PathValue("bucket")
 
-	client, err := getS3Client(bucket)
+	perm := "owner"
+	client, err := getS3Client(bucket, &perm)
 
 	if err != nil {
 		utils.ResponseError(w, err)
 		return
 	}
 
-	out, err := client.GetBucketCors(context.Background(), &s3.GetBucketCorsInput{
+	cors, err := client.GetBucketCors(context.Background(), &s3.GetBucketCorsInput{
 		Bucket: aws.String(bucket),
 	})
 
-	res := []schema.BucketCors{}
+	if err != nil {
+		utils.ResponseError(w, err)
+		return
+	}
+
+	var defaultCors = []schema.BucketCors{{
+		AllowedOrigins: []string{},
+		AllowedMethods: []string{},
+		AllowedHeaders: []string{},
+		ExposeHeaders:  []string{},
+		MaxAgeSeconds:  nil,
+	}}
 	
-	for _, rule := range out.CORSRules {
+	res := make([]schema.BucketCors, 0, len(cors.CORSRules))
+	for _, rule := range cors.CORSRules {
 		res = append(res, schema.BucketCors{
 			AllowedOrigins: rule.AllowedOrigins,
 			AllowedMethods: rule.AllowedMethods,
@@ -84,9 +97,8 @@ func (b*Buckets) GetCors(w http.ResponseWriter, r *http.Request){
 		})
 	}
 
-	if err != nil {
-		utils.ResponseError(w, err)
-		return
+	if len(res) == 0 {
+		res = defaultCors
 	}
 
 	utils.ResponseSuccess(w, res)
@@ -94,7 +106,6 @@ func (b*Buckets) GetCors(w http.ResponseWriter, r *http.Request){
 
 func (b*Buckets) PutCors(w http.ResponseWriter, r *http.Request){
 	bucket := r.PathValue("bucket")
-
 	
 	var body struct {
 		Rules []schema.BucketCors `json:"rules"`
@@ -105,7 +116,8 @@ func (b*Buckets) PutCors(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	client, err := getS3Client(bucket)
+	perm := "owner"
+	client, err := getS3Client(bucket, &perm)
 
 	if err != nil {
 		utils.ResponseError(w, err)
@@ -115,19 +127,19 @@ func (b*Buckets) PutCors(w http.ResponseWriter, r *http.Request){
 	cors := make([]types.CORSRule, 0, len(body.Rules))
 
     for _, rule := range body.Rules {
-    if len(rule.AllowedMethods) == 0 || len(rule.AllowedOrigins) == 0 {
-        utils.ResponseError(w, fmt.Errorf("each CORS rule must have at least one allowed method and origin"))
-        return
-    }
+		if len(rule.AllowedMethods) == 0 || len(rule.AllowedOrigins) == 0 {
+			utils.ResponseError(w, fmt.Errorf("each CORS rule must have at least one allowed method and origin"))
+			return
+		}
 
-    cors = append(cors, types.CORSRule{
-        AllowedHeaders: utils.NilIfEmpty(rule.AllowedHeaders),
-        AllowedMethods: rule.AllowedMethods, // required
-        AllowedOrigins: rule.AllowedOrigins, // required
-        ExposeHeaders:  utils.NilIfEmpty(rule.ExposeHeaders),
-        MaxAgeSeconds:  rule.MaxAgeSeconds,
-    })
-}
+		cors = append(cors, types.CORSRule{
+			AllowedHeaders: utils.NilIfEmpty(rule.AllowedHeaders),
+			AllowedMethods: rule.AllowedMethods, // required
+			AllowedOrigins: rule.AllowedOrigins, // required
+			ExposeHeaders:  utils.NilIfEmpty(rule.ExposeHeaders),
+			MaxAgeSeconds:  rule.MaxAgeSeconds,
+		})
+	}
 
 	res, err := client.PutBucketCors(context.Background(), &s3.PutBucketCorsInput{
 		Bucket: aws.String(bucket),
